@@ -82,7 +82,7 @@ public final class Signal<Value, Error: ErrorType> {
 	}
 
 	/// A Signal that never sends any events to its observers.
-	public class var never: Signal {
+	public static var never: Signal {
 		return self.init { _ in nil }
 	}
 
@@ -91,7 +91,7 @@ public final class Signal<Value, Error: ErrorType> {
 	///
 	/// The Signal will remain alive until a terminating event is sent to the
 	/// observer.
-	public class func pipe() -> (Signal, Observer) {
+	public static func pipe() -> (Signal, Observer) {
 		var observer: Observer!
 		let signal = self.init { innerObserver in
 			observer = innerObserver
@@ -355,6 +355,21 @@ extension SignalType {
 	@warn_unused_result(message="Did you forget to call `observe` on the signal?")
 	public func flatMap<U>(strategy: FlattenStrategy, transform: Value -> Signal<U, Error>) -> Signal<U, Error> {
 		return map(transform).flatten(strategy)
+	}
+}
+
+extension SignalType {
+	/// Merges the given signals into a single `Signal` that will emit all values
+	/// from each of them, and complete when all of them have completed.
+	public static func merge<S: SequenceType where S.Generator.Element == Signal<Value, Error>>(signals: S) -> Signal<Value, Error> {
+		let producer = SignalProducer<Signal<Value, Error>, Error>(values: signals)
+		var result: Signal<Value, Error>!
+
+		producer.startWithSignal { (signal, _) in
+			result = signal.flatten(.Merge)
+		}
+
+		return result
 	}
 }
 
